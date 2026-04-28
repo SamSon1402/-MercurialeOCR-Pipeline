@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MercurialeOCR-Pipeline | ogmah Vision-LLM Extraction</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #f59e0b;
+  --primary-glow: rgba(245, 158, 11, 0.4);
+  --secondary: #3b82f6;
+  --accent: #10b981;
+  --warning: #fbbf24;
+  --danger: #ef4444;
+  --bg-dark: #0a0a0f;
+  --bg-card: #14141d;
+  --bg-elevated: #1f1f2e;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #2a2a3a;
+  --brand-gradient: linear-gradient(135deg, #f59e0b 0%, #3b82f6 50%, #10b981 100%);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Sora', sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 0% 0%, rgba(245, 158, 11, 0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
+}
+.header {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.06) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 2rem;
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(20px);
+}
+.header-content { max-width: 1800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+.logo { display: flex; align-items: center; gap: 0.75rem; }
+.logo-icon {
+  width: 46px; height: 46px;
+  background: var(--brand-gradient);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; position: relative;
+}
+.logo-icon::after {
+  content: ''; position: absolute; inset: -2px;
+  background: var(--brand-gradient); border-radius: 14px;
+  z-index: -1; opacity: 0.5; filter: blur(8px);
+}
+.logo-text {
+  font-size: 1.5rem; font-weight: 800;
+  background: var(--brand-gradient);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.logo-subtitle {
+  font-size: 0.6rem; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 3px; font-weight: 500;
+}
+.header-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.badge {
+  background: var(--bg-card); border: 1px solid var(--border);
+  padding: 0.35rem 0.7rem; border-radius: 6px;
+  font-size: 0.65rem; color: var(--text-secondary);
+  font-family: 'Fira Code', monospace;
+}
+.badge.live { background: rgba(245, 158, 11, 0.15); border-color: var(--primary); color: var(--primary); }
+.badge.live::before {
+  content: ''; display: inline-block; width: 6px; height: 6px;
+  background: var(--primary); border-radius: 50%; margin-right: 5px;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--primary-glow); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 8px transparent; }
+}
+.main { max-width: 1800px; margin: 0 auto; padding: 1.5rem 2rem; }
+.hero { text-align: center; margin-bottom: 1.5rem; }
+.hero h1 {
+  font-size: 2.4rem; font-weight: 800; margin-bottom: 0.4rem;
+  background: var(--brand-gradient);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero p { color: var(--text-secondary); font-size: 1rem; }
+.workspace { display: grid; grid-template-columns: 1fr 420px; gap: 1.25rem; }
+@media (max-width: 1300px) { .workspace { grid-template-columns: 1fr; } }
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+}
+.card-header {
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(180deg, rgba(31, 31, 46, 0.6) 0%, transparent 100%);
+}
+.card-title { font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+.card-body { padding: 1.25rem; }
+
+/* Document viewer */
+.doc-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.doc-tab {
+  flex: 1; padding: 0.6rem; background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+  font-family: 'Sora', sans-serif; font-size: 0.75rem; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+}
+.doc-tab:hover { border-color: var(--primary); color: var(--text-primary); }
+.doc-tab.active { background: rgba(245, 158, 11, 0.15); border-color: var(--primary); color: var(--primary); }
+
+.doc-viewer {
+  position: relative; background: #f8f5ed;
+  border-radius: 12px; overflow: hidden;
+  aspect-ratio: 4/3; margin-bottom: 1rem;
+  border: 1px solid var(--border);
+}
+.doc-content {
+  padding: 1.5rem 2rem; color: #1a1a1a;
+  font-family: 'Times New Roman', serif;
+  height: 100%; overflow: hidden;
+  position: relative;
+}
+.doc-content.photo {
+  background: linear-gradient(135deg, #d4c4a8 0%, #a89578 100%);
+  padding: 0;
+  background-image: 
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0px, transparent 1px, transparent 30px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0px, transparent 1px, transparent 30px);
+}
+.doc-content.photo .doc-table {
+  transform: rotate(-1.5deg) scale(0.95);
+  margin-top: 1rem;
+  filter: contrast(0.9) brightness(0.95);
+  background: #f5e8c8;
+  padding: 1rem;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.doc-header {
+  font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: #1a1a1a;
+}
+.doc-subheader { font-size: 0.75rem; color: #555; margin-bottom: 1rem; }
+.doc-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+.doc-table th {
+  background: #2a2a2a; color: white; padding: 0.4rem 0.6rem; text-align: left; font-weight: 600;
+}
+.doc-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid #ddd; color: #1a1a1a; }
+.doc-table tr:nth-child(even) td { background: #f0e9d6; }
+
+.bbox {
+  position: absolute; border: 2px solid var(--primary);
+  background: rgba(245, 158, 11, 0.15);
+  border-radius: 3px; pointer-events: none;
+  opacity: 0; transition: opacity 0.4s;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+.bbox.visible { opacity: 1; }
+.bbox.matched { border-color: var(--accent); background: rgba(16, 185, 129, 0.15); box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
+.bbox-label {
+  position: absolute; top: -18px; left: 0;
+  background: var(--primary); color: white;
+  padding: 1px 6px; border-radius: 3px;
+  font-size: 0.55rem; font-weight: 600;
+  font-family: 'Fira Code', monospace; white-space: nowrap;
+}
+.bbox.matched .bbox-label { background: var(--accent); }
+
+/* Pipeline stages */
+.pipeline {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem; margin-bottom: 1rem;
+}
+.stage {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center;
+  position: relative; transition: all 0.4s;
+}
+.stage.active {
+  border-color: var(--primary); background: rgba(245, 158, 11, 0.1);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+}
+.stage.done { border-color: var(--accent); background: rgba(16, 185, 129, 0.1); }
+.stage::after {
+  content: '→'; position: absolute; right: -10px; top: 50%;
+  transform: translateY(-50%); color: var(--text-muted);
+  font-size: 1.2rem; z-index: 2;
+}
+.stage:last-child::after { display: none; }
+.stage-icon { font-size: 1.4rem; margin-bottom: 0.25rem; }
+.stage-name { font-size: 0.65rem; font-weight: 600; margin-bottom: 0.15rem; }
+.stage-status {
+  font-size: 0.55rem; color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+}
+.stage.active .stage-status { color: var(--primary); }
+.stage.done .stage-status { color: var(--accent); }
+
+/* Controls */
+.controls { display: flex; gap: 0.5rem; }
+.control-btn {
+  flex: 1; padding: 0.85rem; background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text-primary); font-family: 'Sora', sans-serif;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  transition: all 0.3s; display: flex; align-items: center;
+  justify-content: center; gap: 0.5rem;
+}
+.control-btn:hover { border-color: var(--primary); background: rgba(245, 158, 11, 0.1); }
+.control-btn.primary { background: var(--brand-gradient); border-color: transparent; }
+.control-btn.primary:hover { opacity: 0.9; }
+.control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Stats grid */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem; margin-top: 1rem;
+}
+.stat-card {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.75rem; text-align: center;
+}
+.stat-val {
+  font-size: 1.3rem; font-weight: 700;
+  font-family: 'Fira Code', monospace;
+  background: var(--brand-gradient);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.stat-name {
+  font-size: 0.6rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+
+/* Sidebar */
+.sidebar { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Extracted products */
+.products-list { max-height: 360px; overflow-y: auto; }
+.product-item {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 8px; padding: 0.65rem 0.85rem; margin-bottom: 0.5rem;
+  animation: slideIn 0.3s ease;
+}
+.product-item.matched { border-left-color: var(--accent); }
+.product-item.unmatched { border-left-color: var(--danger); }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.product-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.product-name { font-size: 0.78rem; font-weight: 600; }
+.product-price { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: 'Fira Code', monospace; }
+.product-meta {
+  font-size: 0.62rem; color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+  margin-top: 0.2rem; display: flex; gap: 0.5rem; align-items: center;
+}
+.match-tag {
+  font-size: 0.55rem; padding: 1px 5px; border-radius: 3px;
+  font-weight: 600; font-family: 'Fira Code', monospace;
+}
+.match-tag.high { background: rgba(16, 185, 129, 0.2); color: var(--accent); }
+.match-tag.medium { background: rgba(251, 191, 36, 0.2); color: var(--warning); }
+.match-tag.low { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+/* Confidence visual */
+.confidence-section { background: var(--bg-elevated); border-radius: 12px; padding: 1rem; }
+.conf-row {
+  display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem;
+}
+.conf-label { font-size: 0.7rem; min-width: 80px; color: var(--text-secondary); }
+.conf-bar-wrap {
+  flex: 1; height: 8px; background: var(--bg-dark); border-radius: 4px; overflow: hidden;
+}
+.conf-bar {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  transition: width 0.6s;
+}
+.conf-val {
+  font-size: 0.7rem; font-family: 'Fira Code', monospace;
+  font-weight: 600; min-width: 38px; text-align: right;
+}
+
+/* Model card */
+.model-info { background: var(--bg-elevated); border-radius: 12px; padding: 1rem; }
+.model-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.model-icon {
+  width: 48px; height: 48px; background: var(--brand-gradient);
+  border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; font-size: 1.3rem;
+}
+.model-name { font-size: 1rem; font-weight: 700; }
+.model-version { font-size: 0.7rem; color: var(--text-muted); font-family: 'Fira Code', monospace; }
+.model-stats {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;
+}
+.model-stat {
+  background: var(--bg-dark); border-radius: 8px; padding: 0.6rem 0.5rem; text-align: center;
+}
+.model-stat-value {
+  font-size: 1.1rem; font-weight: 700;
+  font-family: 'Fira Code', monospace; color: var(--primary);
+}
+.model-stat-label {
+  font-size: 0.55rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 0.85rem 1.25rem;
+  display: flex; align-items: center; gap: 0.6rem;
+  box-shadow: 0 15px 50px rgba(0,0,0,0.6);
+  transform: translateY(100px); opacity: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast-title { font-size: 0.85rem; font-weight: 600; }
+.toast-message { font-size: 0.7rem; color: var(--text-muted); }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-content">
+    <div class="logo">
+      <div class="logo-icon">📄</div>
+      <div>
+        <div class="logo-text">MercurialeOCR</div>
+        <div class="logo-subtitle">ogmah · Pipeline Vision-LLM</div>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="badge live">● Online</span>
+      <span class="badge">Vision LLM</span>
+      <span class="badge">Multi-Format · PDF/XLSX/JPG</span>
+      <span class="badge">&lt;48h → &lt;90s</span>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <div class="hero">
+    <h1>📄 Mercuriale Auto-Ingestion Pipeline</h1>
+    <p>From supplier PDF / Excel / photo to structured catalog data — onboarding in seconds, not 48 hours</p>
+  </div>
+
+  <div class="workspace">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">📥 Source Document</h3>
+        <span style="font-size: 0.7rem; color: var(--text-muted); font-family: 'Fira Code';">Fournisseur Provence Halal · Mai 2026</span>
+      </div>
+      <div class="card-body">
+        <div class="doc-tabs">
+          <div class="doc-tab active" data-doc="pdf" onclick="switchDoc(this, 'pdf')">📄 mercuriale.pdf</div>
+          <div class="doc-tab" data-doc="xlsx" onclick="switchDoc(this, 'xlsx')">📊 prix_avril.xlsx</div>
+          <div class="doc-tab" data-doc="photo" onclick="switchDoc(this, 'photo')">📸 photo_mercuriale.jpg</div>
+        </div>
+
+        <div class="doc-viewer" id="docViewer">
+          <div class="doc-content" id="docContent">
+            <div class="doc-header">PROVENCE HALAL — Mercuriale Mai 2026</div>
+            <div class="doc-subheader">Tarifs HT — Livraison Île-de-France · Validité 31/05/2026</div>
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Référence</th>
+                  <th>Désignation</th>
+                  <th>Cond.</th>
+                  <th>PU HT</th>
+                  <th>Unité</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>BV-001</td><td>Côte de bœuf maturée 30j</td><td>Pièce 1.2kg</td><td>34,80</td><td>€/kg</td></tr>
+                <tr><td>BV-014</td><td>Filet de bœuf paré</td><td>Sous-vide</td><td>52,40</td><td>€/kg</td></tr>
+                <tr><td>VL-003</td><td>Suprême de volaille fermière</td><td>Carton 5kg</td><td>14,90</td><td>€/kg</td></tr>
+                <tr><td>AGN-007</td><td>Carré d'agneau 8 côtes</td><td>Sous-vide</td><td>42,60</td><td>€/kg</td></tr>
+                <tr><td>VEAU-21</td><td>Épaule de veau désossée</td><td>Sous-vide</td><td>22,30</td><td>€/kg</td></tr>
+                <tr><td>POI-44</td><td>Filet de bar sauvage ligne</td><td>Glace 3kg</td><td>38,50</td><td>€/kg</td></tr>
+                <tr><td>HUI-12</td><td>Huile d'olive AOC Provence</td><td>Bidon 5L</td><td>11,20</td><td>€/L</td></tr>
+                <tr><td>BEU-09</td><td>Beurre AOP Charentes-Poitou</td><td>Plaque 1kg</td><td>9,80</td><td>€/kg</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="pipeline" id="pipeline">
+          <div class="stage" data-stage="0">
+            <div class="stage-icon">📥</div>
+            <div class="stage-name">Ingest</div>
+            <div class="stage-status">Ready</div>
+          </div>
+          <div class="stage" data-stage="1">
+            <div class="stage-icon">👁️</div>
+            <div class="stage-name">Vision OCR</div>
+            <div class="stage-status">Idle</div>
+          </div>
+          <div class="stage" data-stage="2">
+            <div class="stage-icon">🧠</div>
+            <div class="stage-name">LLM Extract</div>
+            <div class="stage-status">Idle</div>
+          </div>
+          <div class="stage" data-stage="3">
+            <div class="stage-icon">🔗</div>
+            <div class="stage-name">Match</div>
+            <div class="stage-status">Idle</div>
+          </div>
+          <div class="stage" data-stage="4">
+            <div class="stage-icon">✓</div>
+            <div class="stage-name">Validate</div>
+            <div class="stage-status">Idle</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="control-btn primary" id="runBtn" onclick="runPipeline()">
+            <span>▶</span><span id="runText">Run Extraction Pipeline</span>
+          </button>
+          <button class="control-btn" onclick="resetPipeline()">🔄 Reset</button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-val" id="statTime">—</div>
+            <div class="stat-name">Total (s)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="statRows">0/8</div>
+            <div class="stat-name">Rows Extracted</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="statMatch">0%</div>
+            <div class="stat-name">Match Rate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="statCost">€0</div>
+            <div class="stat-name">Cost / Doc</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">🧠 Pipeline Stack</h3></div>
+        <div class="card-body">
+          <div class="model-info">
+            <div class="model-header">
+              <div class="model-icon">⚙️</div>
+              <div>
+                <div class="model-name">Hybrid Vision-LLM</div>
+                <div class="model-version">v1.3.0 · LayoutLMv3 + GPT-4V</div>
+              </div>
+            </div>
+            <div class="model-stats">
+              <div class="model-stat">
+                <div class="model-stat-value">96.4%</div>
+                <div class="model-stat-label">Cell Accuracy</div>
+              </div>
+              <div class="model-stat">
+                <div class="model-stat-value">93.1%</div>
+                <div class="model-stat-label">Match F1</div>
+              </div>
+              <div class="model-stat">
+                <div class="model-stat-value">€0.04</div>
+                <div class="model-stat-label">Cost/Page</div>
+              </div>
+              <div class="model-stat">
+                <div class="model-stat-value">82s</div>
+                <div class="model-stat-label">P95 Latency</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📊 Stage Confidence</h3>
+        </div>
+        <div class="card-body">
+          <div class="confidence-section">
+            <div class="conf-row">
+              <span class="conf-label">OCR Quality</span>
+              <div class="conf-bar-wrap"><div class="conf-bar" id="cb1" style="width:0%"></div></div>
+              <span class="conf-val" id="cv1">—</span>
+            </div>
+            <div class="conf-row">
+              <span class="conf-label">Schema Parse</span>
+              <div class="conf-bar-wrap"><div class="conf-bar" id="cb2" style="width:0%"></div></div>
+              <span class="conf-val" id="cv2">—</span>
+            </div>
+            <div class="conf-row">
+              <span class="conf-label">Catalog Match</span>
+              <div class="conf-bar-wrap"><div class="conf-bar" id="cb3" style="width:0%"></div></div>
+              <span class="conf-val" id="cv3">—</span>
+            </div>
+            <div class="conf-row">
+              <span class="conf-label">Unit Norm.</span>
+              <div class="conf-bar-wrap"><div class="conf-bar" id="cb4" style="width:0%"></div></div>
+              <span class="conf-val" id="cv4">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📋 Extracted Products</h3>
+          <span style="font-size: 0.65rem; color: var(--text-muted);" id="prodCount">0 items</span>
+        </div>
+        <div class="card-body">
+          <div class="products-list" id="productsList">
+            <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 1.5rem;">
+              Run pipeline to extract products
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <span style="font-size: 1.3rem;">✅</span>
+  <div>
+    <div class="toast-title" id="toastTitle">Done</div>
+    <div class="toast-message" id="toastMessage">—</div>
+  </div>
+</div>
+
+<script>
+const products = [
+  { ref: 'BV-001', name: 'Côte de bœuf maturée 30j', cond: 'Pièce 1.2kg', price: 34.80, unit: '€/kg', match: 'high', catalog: 'BOEUF_COTE_MATURE', conf: 0.97 },
+  { ref: 'BV-014', name: 'Filet de bœuf paré', cond: 'Sous-vide', price: 52.40, unit: '€/kg', match: 'high', catalog: 'BOEUF_FILET_PARE', conf: 0.96 },
+  { ref: 'VL-003', name: 'Suprême de volaille fermière', cond: 'Carton 5kg', price: 14.90, unit: '€/kg', match: 'high', catalog: 'VOLAILLE_SUPREME_FERM', conf: 0.94 },
+  { ref: 'AGN-007', name: "Carré d'agneau 8 côtes", cond: 'Sous-vide', price: 42.60, unit: '€/kg', match: 'high', catalog: 'AGNEAU_CARRE_8C', conf: 0.95 },
+  { ref: 'VEAU-21', name: 'Épaule de veau désossée', cond: 'Sous-vide', price: 22.30, unit: '€/kg', match: 'medium', catalog: 'VEAU_EPAULE_DESOSS', conf: 0.79 },
+  { ref: 'POI-44', name: 'Filet de bar sauvage ligne', cond: 'Glace 3kg', price: 38.50, unit: '€/kg', match: 'high', catalog: 'BAR_SAUV_LIGNE_FILET', conf: 0.92 },
+  { ref: 'HUI-12', name: "Huile d'olive AOC Provence", cond: 'Bidon 5L', price: 11.20, unit: '€/L', match: 'medium', catalog: 'HUILE_OLIVE_AOC_PROV', conf: 0.74 },
+  { ref: 'BEU-09', name: 'Beurre AOP Charentes-Poitou', cond: 'Plaque 1kg', price: 9.80, unit: '€/kg', match: 'low', catalog: '⚠ NO_MATCH (review)', conf: 0.42 },
+];
+
+const bboxPositions = [
+  { top: 32, left: 6,  w: 88, h: 5 },
+  { top: 38, left: 6,  w: 88, h: 5 },
+  { top: 44, left: 6,  w: 88, h: 5 },
+  { top: 50, left: 6,  w: 88, h: 5 },
+  { top: 56, left: 6,  w: 88, h: 5 },
+  { top: 62, left: 6,  w: 88, h: 5 },
+  { top: 68, left: 6,  w: 88, h: 5 },
+  { top: 74, left: 6,  w: 88, h: 5 },
+];
+
+let running = false;
+let currentDoc = 'pdf';
+
+function switchDoc(el, type) {
+  if (running) return;
+  document.querySelectorAll('.doc-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentDoc = type;
+  const docContent = document.getElementById('docContent');
+  if (type === 'photo') {
+    docContent.classList.add('photo');
+  } else {
+    docContent.classList.remove('photo');
+  }
+  resetPipeline();
+}
+
+function setStage(idx, status, statusText) {
+  const stages = document.querySelectorAll('.stage');
+  stages.forEach((s, i) => {
+    if (i < idx) {
+      s.classList.add('done');
+      s.classList.remove('active');
+      s.querySelector('.stage-status').textContent = '✓ Done';
+    } else if (i === idx) {
+      s.classList.add('active');
+      s.classList.remove('done');
+      s.querySelector('.stage-status').textContent = statusText || 'Running...';
+    } else {
+      s.classList.remove('active', 'done');
+      s.querySelector('.stage-status').textContent = 'Idle';
+    }
+  });
+}
+
+function setStageDone(idx) {
+  const stages = document.querySelectorAll('.stage');
+  stages[idx].classList.remove('active');
+  stages[idx].classList.add('done');
+  stages[idx].querySelector('.stage-status').textContent = '✓ Done';
+}
+
+function showBboxes(matched) {
+  const viewer = document.getElementById('docViewer');
+  viewer.querySelectorAll('.bbox').forEach(b => b.remove());
+  products.forEach((p, i) => {
+    const pos = bboxPositions[i];
+    const box = document.createElement('div');
+    box.className = 'bbox' + (matched ? ' matched' : '');
+    box.style.left = pos.left + '%';
+    box.style.top = pos.top + '%';
+    box.style.width = pos.w + '%';
+    box.style.height = pos.h + '%';
+    const label = document.createElement('div');
+    label.className = 'bbox-label';
+    label.textContent = matched ? `✓ ${p.ref}` : `[BOX] row_${i+1}`;
+    box.appendChild(label);
+    viewer.appendChild(box);
+    setTimeout(() => box.classList.add('visible'), i * 100 + 50);
+  });
+}
+
+function animateConfidence(id, target, delay) {
+  setTimeout(() => {
+    document.getElementById('cb' + id).style.width = target + '%';
+    document.getElementById('cv' + id).textContent = target.toFixed(0) + '%';
+  }, delay);
+}
+
+async function runPipeline() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('runText').textContent = 'Processing...';
+
+  resetUIOnly();
+
+  // Stage 0 - Ingest
+  setStage(0, 'active', currentDoc === 'photo' ? 'EXIF + dewarp...' : 'Loading...');
+  await sleep(600);
+  setStageDone(0);
+
+  // Stage 1 - Vision OCR
+  setStage(1, 'active', currentDoc === 'photo' ? 'Tesseract+LayoutLMv3' : 'Pdfplumber+VLM');
+  showBboxes(false);
+  animateConfidence(1, currentDoc === 'photo' ? 87 : 96, 400);
+  await sleep(1400);
+  setStageDone(1);
+
+  // Stage 2 - LLM Extract
+  setStage(2, 'active', 'GPT-4V structured...');
+  animateConfidence(2, 94, 400);
+  for (let i = 0; i < products.length; i++) {
+    addProduct(products[i], false);
+    await sleep(180);
+  }
+  await sleep(300);
+  setStageDone(2);
+
+  // Stage 3 - Catalog Match
+  setStage(3, 'active', 'Embedding similarity...');
+  animateConfidence(3, 91, 400);
+  showBboxes(true);
+  await sleep(400);
+  // Update product items to show match results
+  const items = document.querySelectorAll('.product-item');
+  for (let i = 0; i < products.length; i++) {
+    const p = products[i];
+    items[i].classList.remove('unmatched');
+    items[i].classList.add(p.match === 'low' ? 'unmatched' : 'matched');
+    const meta = items[i].querySelector('.product-meta');
+    meta.innerHTML = `
+      <span>${p.ref}</span>
+      <span>·</span>
+      <span style="color: ${p.match === 'low' ? 'var(--danger)' : 'var(--text-secondary)'}">→ ${p.catalog}</span>
+      <span class="match-tag ${p.match}">${(p.conf*100).toFixed(0)}%</span>
+    `;
+    await sleep(120);
+  }
+  setStageDone(3);
+
+  // Stage 4 - Validate
+  setStage(4, 'active', 'Unit normalization...');
+  animateConfidence(4, 99, 400);
+  await sleep(900);
+  setStageDone(4);
+
+  // Final stats
+  document.getElementById('statTime').textContent = (currentDoc === 'photo' ? '94' : '78');
+  document.getElementById('statRows').textContent = '8/8';
+  const matched = products.filter(p => p.match !== 'low').length;
+  document.getElementById('statMatch').textContent = ((matched / products.length) * 100).toFixed(0) + '%';
+  document.getElementById('statCost').textContent = '€0.04';
+
+  document.getElementById('runText').textContent = '✓ Pipeline Complete';
+  showToast('Pipeline complete', `${matched}/${products.length} matched · 1 needs review`);
+  running = false;
+  btn.disabled = false;
+  setTimeout(() => { document.getElementById('runText').textContent = 'Re-run Pipeline'; }, 2000);
+}
+
+function addProduct(p, matched) {
+  const list = document.getElementById('productsList');
+  if (list.children[0] && list.children[0].tagName === 'DIV' && list.children[0].style.color) {
+    list.innerHTML = '';
+  }
+  const item = document.createElement('div');
+  item.className = 'product-item';
+  item.innerHTML = `
+    <div class="product-row">
+      <span class="product-name">${p.name}</span>
+      <span class="product-price">${p.price.toFixed(2)} ${p.unit}</span>
+    </div>
+    <div class="product-meta">
+      <span>${p.ref}</span>
+      <span>·</span>
+      <span>${p.cond}</span>
+    </div>
+  `;
+  list.appendChild(item);
+  document.getElementById('prodCount').textContent = list.children.length + ' items';
+  list.scrollTop = list.scrollHeight;
+}
+
+function resetUIOnly() {
+  document.getElementById('productsList').innerHTML = `
+    <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 1.5rem;">
+      Pipeline running...
+    </div>
+  `;
+  document.getElementById('prodCount').textContent = '0 items';
+  document.getElementById('statTime').textContent = '—';
+  document.getElementById('statRows').textContent = '0/8';
+  document.getElementById('statMatch').textContent = '0%';
+  document.getElementById('statCost').textContent = '€0';
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('cb' + i).style.width = '0%';
+    document.getElementById('cv' + i).textContent = '—';
+  }
+  document.querySelectorAll('.stage').forEach(s => {
+    s.classList.remove('active', 'done');
+    s.querySelector('.stage-status').textContent = 'Idle';
+  });
+  document.querySelectorAll('.bbox').forEach(b => b.remove());
+}
+
+function resetPipeline() {
+  if (running) return;
+  resetUIOnly();
+  document.getElementById('runText').textContent = 'Run Extraction Pipeline';
+  document.querySelector('.stage[data-stage="0"]').querySelector('.stage-status').textContent = 'Ready';
+  document.getElementById('productsList').innerHTML = `
+    <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 1.5rem;">
+      Run pipeline to extract products
+    </div>
+  `;
+  showToast('Reset', 'Pipeline ready');
+}
+
+function showToast(title, message) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastTitle').textContent = title;
+  document.getElementById('toastMessage').textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
